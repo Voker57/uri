@@ -57,6 +57,29 @@ isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` ":@%")]
 satisfiesAny :: [a -> Bool] -> a -> Bool
 satisfiesAny fs a = or (map ($ a) fs)
 
+sepByWSep p sep = sepByWSep1 p sep <|> return []
+
+sepByWSep1 p sep = do
+	first <- p
+	rest <- many $ do
+		sepV <- sep
+		pV <- p
+		return $ sepV ++ pV
+	return $ concat (first : rest)
+
+-- Perfect, eliminates need to explicitly unescape
+percentEncodedP = do
+	string "%"
+	d1 <- hexDigit
+	d2 <- hexDigit
+	return $ chr (read $ "0x" ++ [d1,d2]) -- What possibly can go wrong?
+
+reservedP = satisfy isReserved
+unreservedP = satisfy isUnreserved
+genDelimP = satisfy isGenDelim
+subDelimP = satisfy isSubDelim
+pCharP = (percentEncodedP <|> satisfy isPChar)
+
 uriP = do
 	schemeV <- optionMaybe $ try schemeP
 	string ":"
@@ -91,9 +114,44 @@ hierPartP = do
 	pathV <- pathP
 	return (authorityV, pathV)
 
--- Path parser, very simplified...
-pathP = do
-	many (satisfy $ satisfiesAny [isSubDelim, isUnreserved, (`elem` "%@:/")])
+-- Path parser
+pathP = pathABEmptyP <|> pathAbsoluteP <|> pathNoSchemeP <|> pathRootlessP <|> pathEmptyP
+
+pathABEmptyP = do
+	segs <- many $ do
+		string "/"
+		segmentV <- segmentP
+		return $ "/" ++ segmentV
+	return (concat segs)
+
+pathAbsoluteP = do
+	string "/"
+	rest <- option "" $ do
+		s1 <- segmentNZP
+		segs <- many $ do
+			string "/"
+			v <- segmentP
+			return $ "/" ++ v
+		return $ concat (s1 : segs)
+	return $ "/" ++ rest
+
+pathNoSchemeP = do
+	first <- segmentNZNCP
+	rest <- sepByWSep segmentP (string "/")
+	return $ first ++ rest
+
+pathRootlessP = do
+	first <- segmentNZP
+	rest <- sepByWSep segmentP (string "/")
+	return $ first ++ rest
+
+pathEmptyP = string ""
+
+segmentP = many $ pCharP
+
+segmentNZP = many1 $ pCharP
+
+segmentNZNCP = many1 (percentEncodedP <|> subDelimP <|> unreservedP <|> char '@')
 
 authorityP = do
 	userinfoV <- optionMaybe (try $ do
@@ -147,7 +205,7 @@ decOctetP = do
 		else
 		return a1
 
-regNameP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (=='%')]
+regNameP = many (percentEncodedP <|> unreservedP <|> subDelimP)
 
 -- helper
 countMinMax m n p | m > 0 = do
