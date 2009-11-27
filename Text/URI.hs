@@ -1,4 +1,4 @@
-module Network.URI where
+module Text.URI (URI(..), nullURI, queryToPairs) where
 
 import Data.Char
 import Data.Maybe
