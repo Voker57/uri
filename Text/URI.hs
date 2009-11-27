@@ -1,4 +1,4 @@
-module Text.URI (URI(..), nullURI, queryToPairs) where
+module Text.URI (URI(..), nullURI, queryToPairs, parseURI) where
 
 import Data.Char
 import Data.Maybe
@@ -82,7 +82,6 @@ pCharP = (percentEncodedP <|> plusP <|> satisfy isPChar)
 
 uriP = do
 	schemeV <- optionMaybe $ try schemeP
-	string ":"
 	(authorityV, pathV) <- hierPartP
 	let (userinfoV, hostV, portV) = fromMaybe (Nothing, Nothing, Nothing) authorityV
 	queryV <- optionMaybe $ try $ do
@@ -104,7 +103,8 @@ uriP = do
 -- | scheme parser
 schemeP = do
 	l <- letter
-	ls <- many (alphaNum <|> oneOf "+-.")
+	ls <- many1 (alphaNum <|> oneOf "+-.")
+	string ":"
 	return (l:ls)
 
 hierPartP = do
@@ -115,7 +115,7 @@ hierPartP = do
 	return (authorityV, pathV)
 
 -- Path parser
-pathP = pathABEmptyP <|> pathAbsoluteP <|> pathNoSchemeP <|> pathRootlessP <|> pathEmptyP
+pathP = pathRootlessP <|> pathAbsoluteP <|> pathNoSchemeP <|> pathABEmptyP <|> pathEmptyP
 
 pathABEmptyP = do
 	segs <- many $ do
@@ -246,3 +246,6 @@ plusP = do
 skip a = do
 	a
 	return ()
+
+parseURI :: String -> Maybe URI
+parseURI s = either (const Nothing) (Just) $ parse uriP "user input" s
