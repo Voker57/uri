@@ -78,7 +78,7 @@ reservedP = satisfy isReserved
 unreservedP = satisfy isUnreserved
 genDelimP = satisfy isGenDelim
 subDelimP = satisfy isSubDelim
-pCharP = (percentEncodedP <|> satisfy isPChar)
+pCharP = (percentEncodedP <|> plusP <|> satisfy isPChar)
 
 uriP = do
 	schemeV <- optionMaybe $ try schemeP
@@ -229,3 +229,20 @@ userinfoP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')]
 queryP = many $ satisfy $ satisfiesAny [isPChar, (`elem` "/?")]
 
 fragmentP = queryP
+
+queryToPairs q = either (const []) (id) $ parse urlEncodedPairsP "query" q
+
+urlEncodedPairsP = many urlEncodedPairP
+
+urlEncodedPairP = do
+	keyV <- manyTill (percentEncodedP <|> plusP <|> unreservedP) (char '=')
+	valueV <- manyTill (percentEncodedP <|> plusP <|> unreservedP) (skip (char '&') <|> eof)
+	return (keyV, valueV)
+
+plusP = do
+	char '+'
+	return ' '
+
+skip a = do
+	a
+	return ()
