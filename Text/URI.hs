@@ -12,8 +12,10 @@ module Text.URI (
 	, pairsToQuery
 	, parseURI
 	, pathToSegments
+	, segmentsToPath
 	, queryToPairs
 	, unescapeString
+	, uriPathSegments
 	, uriQueryItems
 	) where
 
@@ -124,14 +126,18 @@ unescapeString s = either (const s) (id) $ parse (many $ percentEncodedP <|> any
 uriQueryItems :: URI -> [(String, String)]
 uriQueryItems = maybe [] (queryToPairs) . uriQuery
 
+-- | Splits path to segments
 pathToSegments :: String -> [String]
 pathToSegments = explode '/'
 
+-- | Convenience function for extracting path segments
 uriPathSegments :: URI -> [String]
 uriPathSegments = pathToSegments . uriPath
 
+-- | Joins path segments, with escaping
 segmentsToPath :: [String] -> String
 segmentsToPath ss = intercalate "/" $ map (escapeString (okInPathSegment)) ss
+
 -- Parser
 
 -- sepBy version thet returns full parsed string
