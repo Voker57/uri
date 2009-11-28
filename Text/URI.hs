@@ -1,4 +1,19 @@
-module Text.URI (URI(..), nullURI, queryToPairs, parseURI) where
+module Text.URI (
+	URI(..)
+	, nullURI
+	, queryToPairs
+	, pairsToQuery
+	, okInUserinfo
+	, okInQuery
+	, okInQueryItem
+	, okInFragment
+	, okInPath
+	, parseURI
+	, escapeString
+	, unescapeString
+	, isReference
+	, isRelative
+	) where
 
 import Data.Char
 import Data.Maybe
@@ -33,7 +48,6 @@ data URI = URI {
 	} deriving (Eq)
 
 -- | Blank URI
-
 nullURI = URI {
 	uriScheme = Nothing
 	, uriRegName = Nothing
@@ -56,7 +70,55 @@ instance Show URI where
 		, maybe "" ("#" ++) $ uriFragment u
 		]
 
--- | Parser
+-- | Checks if character is OK in userinfo
+okInUserinfo = satisfiesAny [isUnreserved, isSubDelim, (==':')]
+-- | Checks if character is OK in query
+okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
+-- | Checks if character is OK in urlencoded query item
+okInQueryItem = isUnreserved
+-- | Checks if character is OK in fragment
+okInFragment = okInQuery
+-- | Checks if character is OK in path
+okInPath = satisfiesAny [isPChar, (`elem` "/")]
+
+-- Parses URI
+parseURI :: String -> Maybe URI
+parseURI s = either (const Nothing) (Just) $ parse uriP "user input" s
+
+-- Escapes one char, see escapeString
+escapeChar :: (Char -> Bool) -> Char -> String
+escapeChar f c = if f c && c /= '%' then [c] else concat $ map (printf "%%%0.2X") (encode [c])
+
+-- | Escapes string, using predicate to determine whether character is allowed
+escapeString :: (Char -> Bool) -> String -> String
+escapeString f s = concat $ map (escapeChar f) s
+
+-- | Checks if uri is a reference
+isReference :: URI -> Bool
+isReference u = maybe (True) (const False) $ uriRegName u
+
+-- | Checks if uri is relative
+isRelative :: URI -> Bool
+isRelative u = headDef ' ' (uriPath u) /= '/'
+
+-- | Composes www-urlencoded query from key-value pairs
+pairsToQuery :: [(String, String)] -> String
+pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
+	rest
+	, escapeString (okInQueryItem) k
+	, "="
+	, escapeString (okInQueryItem) v
+	, "&"
+	]) ""
+
+-- | Unescapes percent-sequences
+unescapeString :: String -> String
+unescapeString s = either (const s) (id) $ parse (many $ percentEncodedP <|> anyChar) "escaped text" s
+
+-- Parser
+
+-- sepBy version thet returns full parsed string
+sepByWSep p sep = sepByWSep1 p sep <|> return []
 
 -- Character classes
 
@@ -66,16 +128,8 @@ isReserved c = isGenDelim c || isSubDelim c
 isUnreserved c = isAlphaNum c || c `elem` "-._~"
 isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` "%:@")]
 
-okInUserinfo = satisfiesAny [isUnreserved, isSubDelim, (==':')]
-okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
-okInQueryItem = isUnreserved
-okInFragment = okInQuery
-okInPath = satisfiesAny [isPChar, (`elem` "/")]
-
 satisfiesAny :: [a -> Bool] -> a -> Bool
 satisfiesAny fs a = or (map ($ a) fs)
-
-sepByWSep p sep = sepByWSep1 p sep <|> return []
 
 sepByWSep1 p sep = do
 	first <- p
@@ -263,31 +317,3 @@ plusP = do
 skip a = do
 	a
 	return ()
-
-parseURI :: String -> Maybe URI
-parseURI s = either (const Nothing) (Just) $ parse uriP "user input" s
-
-escapeChar :: (Char -> Bool) -> Char -> String
-escapeChar f c = if f c && c /= '%' then [c] else concat $ map (printf "%%%0.2X") (encode [c])
-
-escapeString :: (Char -> Bool) -> String -> String
-escapeString f s = concat $ map (escapeChar f) s
-
-isReference :: URI -> Bool
-isReference u = maybe (True) (const False) $ uriRegName u
-
-isRelative :: URI -> Bool
-isRelative u = headDef ' ' (uriPath u) /= '/'
-
-pairsToQuery :: [(String, String)] -> String
-pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
-	rest
-	, escapeString (okInQueryItem) k
-	, "="
-	, escapeString (okInQueryItem) v
-	, "&"
-	]) ""
-
--- Unescapes percent-sequences
-unescapeURI :: String -> String
-unescapeURI s = either (const s) (id) $ parse (many $ percentEncodedP <|> anyChar) "escaped text" s
