@@ -48,12 +48,12 @@ instance Show URI where
 	show u = concat [
 		maybe "" (++ ":") $ uriScheme u
 		, if not (isReference u) then "//" else ""
-		, maybe "" (\s -> (escapeString (okInUserinfo) s) ++ "@") $ uriUserInfo u
+		, maybe "" (++ "@") $ uriUserInfo u
 		, maybe "" (id) $ uriRegName u
 		, maybe "" (\s -> ":" ++ show s) $ uriPort u
-		, escapeString (okInPath) $ uriPath u
-		, maybe "" (\s -> "?" ++ escapeString (okInQuery) s) $ uriQuery u
-		, maybe "" (\s -> "#" ++ escapeString (okInFragment) s) $ uriFragment u
+		, uriPath u
+		, maybe "" ("?" ++) $ uriQuery u
+		, maybe "" ("#" ++) $ uriFragment u
 		]
 
 -- | Parser
@@ -68,7 +68,7 @@ isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` "%:@")]
 
 okInUserinfo = satisfiesAny [isUnreserved, isSubDelim, (==':')]
 okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
-okInQueryItem c = okInQuery c && not (c `elem` "=&")
+okInQueryItem = isUnreserved
 okInFragment = okInQuery
 okInPath = satisfiesAny [isPChar, (`elem` "/")]
 
@@ -85,7 +85,6 @@ sepByWSep1 p sep = do
 		return $ sepV ++ pV
 	return $ concat (first : rest)
 
--- Perfect, eliminates need to explicitly unescape
 percentEncodedP = do
 	string "%"
 	d1 <- hexDigit
@@ -96,7 +95,7 @@ reservedP = satisfy isReserved
 unreservedP = satisfy isUnreserved
 genDelimP = satisfy isGenDelim
 subDelimP = satisfy isSubDelim
-pCharP = (percentEncodedP <|> plusP <|> satisfy isPChar)
+pCharP = satisfy isPChar
 
 uriP = do
 	schemeV <- optionMaybe $ try schemeP
@@ -169,7 +168,7 @@ segmentP = many $ pCharP
 
 segmentNZP = many1 $ pCharP
 
-segmentNZNCP = many1 (percentEncodedP <|> subDelimP <|> unreservedP <|> char '@')
+segmentNZNCP = many1 (subDelimP <|> unreservedP <|> oneOf "@%")
 
 authorityP = do
 	userinfoV <- optionMaybe (try $ do
@@ -223,7 +222,7 @@ decOctetP = do
 		else
 		return a1
 
-regNameP = many (percentEncodedP <|> unreservedP <|> subDelimP)
+regNameP = many (unreservedP <|> subDelimP <|> oneOf "%")
 
 -- helper
 countMinMax m n p | m > 0 = do
@@ -244,7 +243,7 @@ portP = do
 -- userinfo
 userinfoP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')]
 
-queryP = many $ pCharP <|> oneOf "/?"
+queryP = many $ satisfy (isPChar) <|> oneOf "/?"
 
 fragmentP = queryP
 
@@ -288,3 +287,6 @@ pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
 	, escapeString (okInQueryItem) v
 	, "&"
 	]) ""
+
+unescapeURI :: String -> String
+unescapeURI s = either (const s) (id) $ parse (many $ percentEncodedP <|> anyChar) "escaped text" s
