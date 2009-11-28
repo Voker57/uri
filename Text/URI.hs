@@ -52,7 +52,7 @@ isGenDelim = (`elem` ":/?#[]@")
 isSubDelim = (`elem` "!$&'()*+,;=")
 isReserved c = isGenDelim c || isSubDelim c
 isUnreserved c = isAlphaNum c || c `elem` "-._~"
-isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` ":@%")]
+isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` ":@")]
 
 satisfiesAny :: [a -> Bool] -> a -> Bool
 satisfiesAny fs a = or (map ($ a) fs)
