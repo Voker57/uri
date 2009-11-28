@@ -1,21 +1,24 @@
 module Text.URI (
 	URI(..)
-	, nullURI
-	, queryToPairs
-	, pairsToQuery
-	, okInUserinfo
-	, okInQuery
-	, okInQueryItem
-	, okInFragment
-	, okInPath
-	, parseURI
 	, escapeString
-	, unescapeString
 	, isReference
 	, isRelative
+	, nullURI
+	, okInFragment
+	, okInPath
+	, okInQuery
+	, okInQueryItem
+	, okInUserinfo
+	, pairsToQuery
+	, parseURI
+	, pathToSegments
+	, queryToPairs
+	, unescapeString
+	, uriQueryItems
 	) where
 
 import Data.Char
+import Data.List
 import Data.Maybe
 import Data.Word
 import Codec.Binary.UTF8.String
@@ -79,7 +82,9 @@ okInQueryItem = isUnreserved
 -- | Checks if character is OK in fragment
 okInFragment = okInQuery
 -- | Checks if character is OK in path
-okInPath = satisfiesAny [isPChar, (`elem` "/")]
+okInPath = satisfiesAny [isPChar, (`elem` "/@")]
+-- | Checks if character is ok in path segment
+okInPathSegment = satisfiesAny [isPChar, (== '@')]
 
 -- Parses URI
 parseURI :: String -> Maybe URI
@@ -115,6 +120,18 @@ pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
 unescapeString :: String -> String
 unescapeString s = either (const s) (id) $ parse (many $ percentEncodedP <|> anyChar) "escaped text" s
 
+-- | Convenience function for extracting www-urlencoded data
+uriQueryItems :: URI -> [(String, String)]
+uriQueryItems = maybe [] (queryToPairs) . uriQuery
+
+pathToSegments :: String -> [String]
+pathToSegments = explode '/'
+
+uriPathSegments :: URI -> [String]
+uriPathSegments = pathToSegments . uriPath
+
+segmentsToPath :: [String] -> String
+segmentsToPath ss = intercalate "/" $ map (escapeString (okInPathSegment)) ss
 -- Parser
 
 -- sepBy version thet returns full parsed string
@@ -317,3 +334,6 @@ plusP = do
 skip a = do
 	a
 	return ()
+
+explode :: Char -> String -> [String]
+explode c = unfoldr (\s -> if null s then Nothing else Just (takeWhile (/=c) s, (tailSafe . dropWhile (/=c)) s))
