@@ -48,12 +48,12 @@ instance Show URI where
 	show u = concat [
 		maybe "" (++ ":") $ uriScheme u
 		, if not (isReference u) then "//" else ""
-		, maybe "" (++ "@") $ uriUserInfo u
+		, maybe "" (\s -> (escapeString (okInUserinfo) s) ++ "@") $ uriUserInfo u
 		, maybe "" (id) $ uriRegName u
-		, maybe "" (\p -> ":" ++ show p) $ uriPort u
-		, uriPath u
-		, maybe "" ("?" ++) $ uriQuery u
-		, maybe "" ("#" ++) $ uriFragment u
+		, maybe "" (\s -> ":" ++ show s) $ uriPort u
+		, escapeString (okInPath) $ uriPath u
+		, maybe "" (\s -> "?" ++ escapeString (okInQuery) s) $ uriQuery u
+		, maybe "" (\s -> "#" ++ escapeString (okInFragment) s) $ uriFragment u
 		]
 
 -- | Parser
@@ -64,7 +64,12 @@ isGenDelim = (`elem` ":/?#[]@")
 isSubDelim = (`elem` "!$&'()*+,;=")
 isReserved c = isGenDelim c || isSubDelim c
 isUnreserved c = isAlphaNum c || c `elem` "-._~"
-isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` ":@")]
+isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` "%:@")]
+
+okInUserinfo = satisfiesAny [isUnreserved, isSubDelim, (==':')]
+okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
+okInFragment = okInQuery
+okInPath = satisfiesAny [isPChar, (`elem` "/")]
 
 satisfiesAny :: [a -> Bool] -> a -> Bool
 satisfiesAny fs a = or (map ($ a) fs)
