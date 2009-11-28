@@ -226,7 +226,7 @@ portP = do
 -- userinfo
 userinfoP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')]
 
-queryP = many $ satisfy $ satisfiesAny [isPChar, (`elem` "/?")]
+queryP = many $ pCharP <|> oneOf "/?"
 
 fragmentP = queryP
 
