@@ -28,9 +28,9 @@ data URI = URI {
 	, uriRegName :: Maybe String -- ^ @www.haskell.org@
 	, uriPort :: Maybe Integer -- ^ @42@
 	, uriPath :: String -- ^ @/ghc@
-	, uriQuery :: String -- ^ @query@
-	, uriFragment :: String -- ^ @frag@
-	} deriving (Eq, Show)
+	, uriQuery :: Maybe String -- ^ @query@
+	, uriFragment :: Maybe String -- ^ @frag@
+	} deriving (Eq)
 
 -- | Blank URI
 
@@ -40,9 +40,21 @@ nullURI = URI {
 	, uriUserInfo = Nothing
 	, uriPort = Nothing
 	, uriPath = ""
-	, uriQuery = ""
-	, uriFragment = ""
+	, uriQuery = Nothing
+	, uriFragment = Nothing
 	}
+
+instance Show URI where
+	show u = concat [
+		maybe "" (++ ":") $ uriScheme u
+		, if not (isReference u) then "//" else ""
+		, maybe "" (++ "@") $ uriUserInfo u
+		, maybe "" (id) $ uriRegName u
+		, maybe "" (\p -> ":" ++ show p) $ uriPort u
+		, uriPath u
+		, maybe "" ("?" ++) $ uriQuery u
+		, maybe "" ("#" ++) $ uriFragment u
+		]
 
 -- | Parser
 
@@ -96,8 +108,8 @@ uriP = do
 		, uriPort = portV
 		, uriPath = pathV
 		, uriUserInfo = userinfoV
-		, uriQuery = fromMaybe "" queryV
-		, uriFragment = fromMaybe "" fragmentV
+		, uriQuery = queryV
+		, uriFragment = fragmentV
 		}
 
 -- | scheme parser
@@ -249,3 +261,15 @@ skip a = do
 
 parseURI :: String -> Maybe URI
 parseURI s = either (const Nothing) (Just) $ parse uriP "user input" s
+
+escapeChar :: (Char -> Bool) -> Char -> String
+escapeChar f c = if f c then [c] else concat $ map (printf "%%%0.2X") (encode [c])
+
+escapeString :: (Char -> Bool) -> String -> String
+escapeString f s = concat $ map (escapeChar f) s
+
+isReference :: URI -> Bool
+isReference u = maybe (True) (const False) $ uriRegName u
+
+isRelative :: URI -> Bool
+isRelative u = headDef ' ' (uriPath u) /= '/'
