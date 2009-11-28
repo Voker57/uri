@@ -268,7 +268,7 @@ parseURI :: String -> Maybe URI
 parseURI s = either (const Nothing) (Just) $ parse uriP "user input" s
 
 escapeChar :: (Char -> Bool) -> Char -> String
-escapeChar f c = if f c then [c] else concat $ map (printf "%%%0.2X") (encode [c])
+escapeChar f c = if f c && c /= '%' then [c] else concat $ map (printf "%%%0.2X") (encode [c])
 
 escapeString :: (Char -> Bool) -> String -> String
 escapeString f s = concat $ map (escapeChar f) s
@@ -288,5 +288,6 @@ pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
 	, "&"
 	]) ""
 
+-- Unescapes percent-sequences
 unescapeURI :: String -> String
 unescapeURI s = either (const s) (id) $ parse (many $ percentEncodedP <|> anyChar) "escaped text" s
