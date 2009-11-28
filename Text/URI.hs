@@ -68,6 +68,7 @@ isPChar = satisfiesAny [isUnreserved, isSubDelim, (`elem` "%:@")]
 
 okInUserinfo = satisfiesAny [isUnreserved, isSubDelim, (==':')]
 okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
+okInQueryItem c = okInQuery c && not (c `elem` "=&")
 okInFragment = okInQuery
 okInPath = satisfiesAny [isPChar, (`elem` "/")]
 
@@ -278,3 +279,12 @@ isReference u = maybe (True) (const False) $ uriRegName u
 
 isRelative :: URI -> Bool
 isRelative u = headDef ' ' (uriPath u) /= '/'
+
+pairsToQuery :: [(String, String)] -> String
+pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
+	rest
+	, escapeString (okInQueryItem) k
+	, "="
+	, escapeString (okInQueryItem) v
+	, "&"
+	]) ""
