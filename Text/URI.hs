@@ -1,6 +1,7 @@
 module Text.URI (
 	URI(..)
 	, dereferencePath
+	, dereferencePathString
 	, escapeString
 	, isReference
 	, isRelative
@@ -11,6 +12,9 @@ module Text.URI (
 	, okInQueryItem
 	, okInUserinfo
 	, mergePaths
+	, mergePathStrings
+	, mergeURIs
+	, mergeURIStrings
 	, pairsToQuery
 	, parseURI
 	, pathToSegments
@@ -140,6 +144,37 @@ uriPathSegments = pathToSegments . uriPath
 segmentsToPath :: [String] -> String
 segmentsToPath ss = intercalate "/" $ map (escapeString (okInPathSegment)) ss
 
+mergeURIs t r = if isJust (uriScheme r) then
+	t { uriScheme = uriScheme r
+		, uriRegName = uriRegName r
+		, uriPort = uriPort r
+		, uriUserInfo = uriUserInfo r
+		, uriPath = dereferencePathString (uriPath r)
+		, uriQuery = uriQuery r
+		, uriFragment = uriFragment r
+		}
+	else
+	if isJust (uriRegName r) then
+		t { uriRegName = uriRegName r
+			, uriPort = uriPort r
+			, uriUserInfo = uriUserInfo r
+			, uriPath = dereferencePathString (uriPath r)
+			, uriQuery = uriQuery r
+			, uriFragment = uriFragment r
+			}
+		else -- Not 100% sure about how good i translated this, but seems right.
+		t { uriQuery = maybe (uriQuery r) (Just) (uriQuery t)
+			, uriPath = mergePathStrings (uriPath t) (uriPath r)
+			, uriFragment = uriFragment r
+			}
+
+mergeURIStrings :: String -> String -> String
+mergeURIStrings s1 s2 = show $ mergeURIs (fromMaybe nullURI $ parseURI s1) (fromMaybe nullURI $ parseURI s2)
+
+-- | mergePaths for strings
+mergePathStrings :: String -> String -> String
+mergePathStrings p1 p2 = segmentsToPath $ mergePaths (pathToSegments p1) (pathToSegments p2)
+
 -- | Merges two paths
 mergePaths :: [String] -> [String] -> [String]
 mergePaths p1 ("":p2) = ("":p2)
@@ -148,6 +183,10 @@ mergePaths p1 p2 = dereferencePath (p1 ++ p2)
 -- | Removes ".." and "." from path
 dereferencePath :: [String] -> [String]
 dereferencePath = dereferencePath' []
+
+-- | dereferencePath for strings
+dereferencePathString :: String -> String
+dereferencePathString = segmentsToPath . dereferencePath . pathToSegments
 
 -- Private functions
 
