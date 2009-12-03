@@ -1,5 +1,6 @@
 module Text.URI (
 	URI(..)
+	, dereferencePath
 	, escapeString
 	, isReference
 	, isRelative
@@ -9,6 +10,7 @@ module Text.URI (
 	, okInQuery
 	, okInQueryItem
 	, okInUserinfo
+	, mergePaths
 	, pairsToQuery
 	, parseURI
 	, pathToSegments
@@ -102,11 +104,11 @@ escapeString f s = concat $ map (escapeChar f) s
 
 -- | Checks if uri is a reference
 isReference :: URI -> Bool
-isReference u = maybe (True) (const False) $ uriRegName u
+isReference u = all (isNothing) [uriRegName u, uriScheme u]
 
 -- | Checks if uri is relative
 isRelative :: URI -> Bool
-isRelative u = headDef ' ' (uriPath u) /= '/'
+isRelative u = isReference u && (headDef ' ' (uriPath u) /= '/')
 
 -- | Composes www-urlencoded query from key-value pairs
 pairsToQuery :: [(String, String)] -> String
@@ -137,6 +139,24 @@ uriPathSegments = pathToSegments . uriPath
 -- | Joins path segments, with escaping
 segmentsToPath :: [String] -> String
 segmentsToPath ss = intercalate "/" $ map (escapeString (okInPathSegment)) ss
+
+-- | Merges two paths
+mergePaths :: [String] -> [String] -> [String]
+mergePaths p1 ("":p2) = ("":p2)
+mergePaths p1 p2 = dereferencePath (p1 ++ p2)
+
+-- | Removes ".." and "." from path
+dereferencePath :: [String] -> [String]
+dereferencePath = dereferencePath' []
+
+-- Private functions
+
+
+dereferencePath' :: [String] -> [String] -> [String]
+dereferencePath' processed [] = processed
+dereferencePath' processed ("..":ps) = dereferencePath' (initSafe processed) (ps)
+dereferencePath' processed (".":ps) = dereferencePath' processed ps
+dereferencePath' processed (p:ps) = dereferencePath' (processed ++ [p]) ps
 
 -- Parser
 
