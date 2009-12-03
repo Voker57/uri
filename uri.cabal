@@ -9,6 +9,7 @@ Author: Voker57
 Maintainer: voker57@gmail.com
 Homepage: http://gitorious.org/~voker57/uri
 Build-type: Simple
+Stability: Experimental
 Cabal-version: >= 1.6
 
 Source-repository head
