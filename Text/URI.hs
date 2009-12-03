@@ -50,7 +50,7 @@ import Text.Printf
 
 data URI = URI {
 	uriScheme :: Maybe String -- ^ @foo@
-	, uriUserInfo :: Maybe String -- ^ @anonymous\@
+	, uriUserInfo :: Maybe String -- ^ @anonymous@
 	, uriRegName :: Maybe String -- ^ @www.haskell.org@
 	, uriPort :: Maybe Integer -- ^ @42@
 	, uriPath :: String -- ^ @/ghc@
@@ -59,6 +59,7 @@ data URI = URI {
 	} deriving (Eq)
 
 -- | Blank URI
+nullURI :: URI
 nullURI = URI {
 	uriScheme = Nothing
 	, uriRegName = Nothing
@@ -82,23 +83,29 @@ instance Show URI where
 		]
 
 -- | Checks if character is OK in userinfo
+okInUserinfo :: Char -> Bool
 okInUserinfo = satisfiesAny [isUnreserved, isSubDelim, (==':')]
 -- | Checks if character is OK in query
+okInQuery :: Char -> Bool
 okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
 -- | Checks if character is OK in urlencoded query item
+okInQueryItem :: Char -> Bool
 okInQueryItem = isUnreserved
 -- | Checks if character is OK in fragment
+okInFragment :: Char -> Bool
 okInFragment = okInQuery
 -- | Checks if character is OK in path
+okInPath :: Char -> Bool
 okInPath = satisfiesAny [isPChar, (`elem` "/@")]
 -- | Checks if character is ok in path segment
+okInPathSegment :: Char -> Bool
 okInPathSegment = satisfiesAny [isPChar, (== '@')]
 
--- Parses URI
+-- | Parses URI
 parseURI :: String -> Maybe URI
 parseURI s = either (const Nothing) (Just) $ parse uriP "user input" s
 
--- Escapes one char, see escapeString
+-- | Escapes one char, see escapeString
 escapeChar :: (Char -> Bool) -> Char -> String
 escapeChar f c = if f c && c /= '%' then [c] else concat $ map (printf "%%%0.2X") (encode [c])
 
@@ -124,6 +131,10 @@ pairsToQuery = initSafe . foldl (\rest (k,v) -> concat [
 	, "&"
 	]) ""
 
+-- | Parses www-urlencoded string to key-value pairs
+queryToPairs :: String -> [(String, String)]
+queryToPairs q = either (const []) (id) $ parse urlEncodedPairsP "query" q
+
 -- | Unescapes percent-sequences
 unescapeString :: String -> String
 unescapeString s = either (const s) (id) $ parse (many $ percentEncodedP <|> anyChar) "escaped text" s
@@ -144,6 +155,10 @@ uriPathSegments = pathToSegments . uriPath
 segmentsToPath :: [String] -> String
 segmentsToPath ss = intercalate "/" $ map (escapeString (okInPathSegment)) ss
 
+-- | Merges two URIs
+mergeURIs :: URI -- ^ Base URI
+	-> URI -- ^ Reference URI
+	-> URI -- ^ Resulting URI
 mergeURIs t r = if isJust (uriScheme r) then
 	t { uriScheme = uriScheme r
 		, uriRegName = uriRegName r
@@ -168,6 +183,7 @@ mergeURIs t r = if isJust (uriScheme r) then
 			, uriFragment = uriFragment r
 			}
 
+-- | mergeURIs for strings
 mergeURIStrings :: String -> String -> String
 mergeURIStrings s1 s2 = show $ mergeURIs (fromMaybe nullURI $ parseURI s1) (fromMaybe nullURI $ parseURI s2)
 
@@ -382,8 +398,6 @@ userinfoP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')]
 queryP = many $ satisfy (isPChar) <|> oneOf "/?"
 
 fragmentP = queryP
-
-queryToPairs q = either (const []) (id) $ parse urlEncodedPairsP "query" q
 
 urlEncodedPairsP = many urlEncodedPairP
 
