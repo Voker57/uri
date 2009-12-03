@@ -7,7 +7,7 @@ License: BSD3
 License-file: COPYING
 Author: Voker57
 Maintainer: voker57@gmail.com
-Homepage: http://gitorious.org/~voker57/uri
+Homepage: http://gitorious.org/uri
 Build-type: Simple
 Stability: Experimental
 Cabal-version: >= 1.6
