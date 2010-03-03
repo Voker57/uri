@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Text.URI (
 	URI(..)
 	, dereferencePath
@@ -31,7 +33,7 @@ import Data.Maybe
 import Data.Word
 import Codec.Binary.UTF8.String
 import Safe
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 import Text.Printf
 
 ------------------------------------------------------------
@@ -243,8 +245,10 @@ percentEncodedP = do
 	d2 <- hexDigit
 	return $ chr (read $ "0x" ++ [d1,d2]) -- What possibly can go wrong?
 
+reservedP :: Stream s m Char => ParsecT s u m Char
 reservedP = satisfy isReserved
 unreservedP = satisfy isUnreserved
+genDelimP :: Stream s m Char => ParsecT s u m Char
 genDelimP = satisfy isGenDelim
 subDelimP = satisfy isSubDelim
 pCharP = satisfy isPChar
