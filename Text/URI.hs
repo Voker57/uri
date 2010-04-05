@@ -90,7 +90,7 @@ okInQuery :: Char -> Bool
 okInQuery = satisfiesAny [isPChar, (`elem` "/?")]
 -- | Checks if character is OK in urlencoded query item
 okInQueryItem :: Char -> Bool
-okInQueryItem = isUnreserved
+okInQueryItem c = okInQuery c && (not $ elem c "&=")
 -- | Checks if character is OK in fragment
 okInFragment :: Char -> Bool
 okInFragment = okInQuery
@@ -397,13 +397,15 @@ userinfoP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')]
 
 queryP = many $ satisfy (isPChar) <|> oneOf "/?"
 
+queryItemP = satisfy (\c -> isPChar c && (not $ elem c "&=")) <|> oneOf "/?"
+
 fragmentP = queryP
 
 urlEncodedPairsP = many urlEncodedPairP
 
 urlEncodedPairP = do
-	keyV <- manyTill (percentEncodedP <|> plusP <|> unreservedP) (char '=')
-	valueV <- manyTill (percentEncodedP <|> plusP <|> unreservedP) (skip (char '&') <|> eof)
+	keyV <- manyTill (percentEncodedP <|> plusP <|> queryItemP) (char '=')
+	valueV <- manyTill (percentEncodedP <|> plusP <|> queryItemP) (skip (char '&') <|> eof)
 	return (keyV, valueV)
 
 plusP = do
