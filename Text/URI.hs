@@ -401,7 +401,7 @@ userinfoP = many $ satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')]
 
 queryP = many $ satisfy (isPChar) <|> oneOf "/?"
 
-queryItemP = satisfy (\c -> isPChar c && (not $ elem c "&=")) <|> oneOf "/?"
+queryItemP = satisfy (isPChar) <|> oneOf "/?"
 
 fragmentP = queryP
 
