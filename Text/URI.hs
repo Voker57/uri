@@ -75,11 +75,11 @@ nullURI = URI {
 instance Show URI where
 	show u = concat [
 		maybe "" (++ ":") $ uriScheme u
-		, if not (isReference u) then "//" else ""
+		, if (isJust $ uriRegName u) then "//" else ""
 		, maybe "" (++ "@") $ uriUserInfo u
-		, maybe "" (id) $ uriRegName u
+		, maybe "" (++ "/") $ uriRegName u
 		, maybe "" (\s -> ":" ++ show s) $ uriPort u
-		, uriPath u
+		, if (isJust $ uriRegName u) && "/" `isPrefixOf` uriPath u then tailSafe $ uriPath u else uriPath u
 		, maybe "" ("?" ++) $ uriQuery u
 		, maybe "" ("#" ++) $ uriFragment u
 		]
@@ -180,10 +180,16 @@ mergeURIs t r = if isJust (uriScheme r) then
 			, uriFragment = uriFragment r
 			}
 		else -- Not 100% sure about how good i translated this, but seems right.
-		t { uriQuery = maybe (uriQuery r) (Just) (uriQuery t)
-			, uriPath = mergePathStrings (uriPath t) (uriPath r)
-			, uriFragment = uriFragment r
-			}
+		if uriPath r == "" then
+			t { uriQuery = maybe (uriQuery t) (Just) $ uriQuery r
+				, uriPath = uriPath t
+				, uriFragment = uriFragment r
+				}
+			else
+			t { uriQuery = uriQuery r
+				, uriPath = mergePathStrings (uriPath t) (uriPath r)
+				, uriFragment = uriFragment r
+				}
 
 -- | mergeURIs for strings
 mergeURIStrings :: String -> String -> String
@@ -195,8 +201,9 @@ mergePathStrings p1 p2 = segmentsToPath $ mergePaths (pathToSegments p1) (pathTo
 
 -- | Merges two paths
 mergePaths :: [String] -> [String] -> [String]
-mergePaths p1 ("":p2) = ("":p2)
-mergePaths p1 p2 = dereferencePath (p1 ++ p2)
+mergePaths p1 p2@("":_) = dereferencePath p2
+mergePaths p1 [] = dereferencePath p1
+mergePaths p1 p2 = dereferencePath (initSafe p1 ++ p2)
 
 -- | Removes ".." and "." from path
 dereferencePath :: [String] -> [String]
@@ -276,7 +283,7 @@ uriP = do
 -- | scheme parser
 schemeP = do
 	l <- letter
-	ls <- many1 (alphaNum <|> oneOf "+-.")
+	ls <- many (alphaNum <|> oneOf "+-.")
 	string ":"
 	return (l:ls)
 
@@ -354,10 +361,76 @@ ipvFutureP = do
 	datV <- many1 (satisfy $ satisfiesAny [isUnreserved, isSubDelim, (==':')])
 	return $ concat [v, versionV, dot, datV]
 
--- ipv6 parser
-ipv6AddressP = do
-	-- To hell with complicated rules
-	many1 $ oneOf "ABCDEF1234567890:"
+-- | Parse h16 followed by a colon, with no backtracking on failure.
+h16Colon = do
+	h <- h16
+	c <- string ":"
+	return (h ++ c)
+
+-- | Process 0..n instances of the specified parser, backtracking on failure.
+upTo n p = choice [try (count x p) | x <- [0..n]]
+
+ipv6AddressP = try (do
+		hs <- count 6 h16Colon
+		s <- ls32
+		return $ concat hs ++ s)
+	<|> try (do
+		co <- string "::"
+		hs <- count 5 h16Colon
+		s <- ls32
+		return $ co ++ concat hs ++ s)
+	<|> try (do
+		p <- option "" h16
+		co <- string "::"
+		hs <- count 4 h16Colon
+		s <- ls32
+		return $ p ++ co ++ concat hs ++ s)
+	<|> try (do
+		ps <- upTo 1 h16Colon
+		pp <- h16
+		co <- string "::"
+		hs <- count 3 h16Colon
+		s <- ls32
+		return $ concat ps ++ pp ++ co ++ concat hs ++ s)
+	<|> try (do
+		ps <- upTo 2 h16Colon
+		pp <- h16
+		co <- string "::"
+		hs <- count 2 h16Colon
+		s <- ls32
+		return $ concat ps ++ pp ++ co ++ concat hs ++ s)
+	<|> try (do
+		ps <- upTo 3 h16Colon
+		pp <- h16
+		co <- string "::"
+		h <- h16Colon
+		s <- ls32
+		return $ concat ps ++ pp ++ co ++ h ++ s)
+	<|> try (do
+		ps <- upTo 4 h16Colon
+		pp <- h16
+		co <- string "::"
+		s <- ls32
+		return $ concat ps ++ pp ++ co ++ s)
+	<|> try (do
+		ps <- upTo 5 h16Colon
+		pp <- h16
+		co <- string "::"
+		h <- h16
+		return $ concat ps ++ pp ++ co ++ h)
+	<|> try (do
+		ps <- upTo 6 h16Colon
+		pp <- h16
+		co <- string "::"
+		return $ concat ps ++ pp ++ co)
+
+h16 = count 4 hexDigit
+ls32 = try (do
+	h1 <- h16
+	co <- string ":"
+	h2 <- h16
+	return $ h1 ++ co ++ h2)
+	<|> ipv4AddressP
 
 -- ipv4Address parser
 ipv4AddressP = do
@@ -420,5 +493,8 @@ skip a = do
 	a
 	return ()
 
-explode :: Char -> String -> [String]
-explode c = unfoldr (\s -> if null s then Nothing else Just (takeWhile (/=c) s, (tailSafe . dropWhile (/=c)) s))
+explode :: (Eq a) => a -> [a] -> [[a]]
+explode delim xs = let (first, rest) = span (/= delim) xs
+	in first : case rest of
+		[] -> []
+		x:xs -> explode delim xs
