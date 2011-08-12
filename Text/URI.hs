@@ -295,7 +295,7 @@ hierPartP = do
 	return (authorityV, pathV)
 
 -- Path parser
-pathP = pathRootlessP <|> pathAbsoluteP <|> pathNoSchemeP <|> pathABEmptyP <|> pathEmptyP
+pathP = (try pathRootlessP) <|> try pathAbsoluteP <|> try pathNoSchemeP <|> try pathABEmptyP <|> try pathEmptyP
 
 pathABEmptyP = do
 	segs <- many $ do
