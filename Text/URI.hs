@@ -344,7 +344,7 @@ authorityP = do
 		portP)
 	return (userinfoV, Just hostV, portV)
 
-hostP = ipLiteralP <|> ipv4AddressP <|> regNameP
+hostP = ipLiteralP <|> try ipv4AddressP <|> regNameP
 
 -- ip v6+ parser
 ipLiteralP = do
