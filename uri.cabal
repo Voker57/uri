@@ -1,5 +1,5 @@
 Name: uri
-Version: 0.1.5
+Version: 0.1.6
 Synopsis: Library for working with URIs
 Category: Text
 Description: Library for working with URIs, including parsing, rendering, merging, escaping
