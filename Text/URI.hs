@@ -77,9 +77,9 @@ instance Show URI where
 		maybe "" (++ ":") $ uriScheme u
 		, if (isJust $ uriRegName u) then "//" else ""
 		, maybe "" (++ "@") $ uriUserInfo u
-		, maybe "" (++ "/") $ uriRegName u
+		, fromMaybe "" $ uriRegName u
 		, maybe "" (\s -> ":" ++ show s) $ uriPort u
-		, if (isJust $ uriRegName u) && "/" `isPrefixOf` uriPath u then tailSafe $ uriPath u else uriPath u
+		, if (isJust $ uriRegName u) && (not ("/" `isPrefixOf` uriPath u || uriPath u == "")) then ("/" ++ uriPath u) else uriPath u
 		, maybe "" ("?" ++) $ uriQuery u
 		, maybe "" ("#" ++) $ uriFragment u
 		]
