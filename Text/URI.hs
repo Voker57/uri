@@ -35,7 +35,6 @@ import Codec.Binary.UTF8.String
 import Safe
 import Text.Parsec
 import Text.Printf
-
 ------------------------------------------------------------
 --  The URI datatype
 ------------------------------------------------------------
@@ -155,6 +154,7 @@ uriPathSegments = pathToSegments . uriPath
 
 -- | Joins path segments, with escaping
 segmentsToPath :: [String] -> String
+segmentsToPath [""] = "/"
 segmentsToPath ss = intercalate "/" $ map (escapeString (okInPathSegment)) ss
 
 -- | Merges two URIs
@@ -203,11 +203,11 @@ mergePathStrings p1 p2 = segmentsToPath $ mergePaths (pathToSegments p1) (pathTo
 mergePaths :: [String] -> [String] -> [String]
 mergePaths p1 p2@("":_) = dereferencePath p2
 mergePaths p1 [] = dereferencePath p1
-mergePaths p1 p2 = dereferencePath (initSafe p1 ++ p2)
+mergePaths p1 p2 = dereferencePath ((initSafe p1 ++ ["."]) ++ p2)
 
 -- | Removes ".." and "." from path
 dereferencePath :: [String] -> [String]
-dereferencePath = dereferencePath' []
+dereferencePath = reverse . dereferencePath' [] . map (\s -> if s == "" then "." else s)
 
 -- | dereferencePath for strings
 dereferencePathString :: String -> String
@@ -215,12 +215,13 @@ dereferencePathString = segmentsToPath . dereferencePath . pathToSegments
 
 -- Private functions
 
-
 dereferencePath' :: [String] -> [String] -> [String]
 dereferencePath' processed [] = processed
-dereferencePath' processed ("..":ps) = dereferencePath' (initSafe processed) (ps)
+dereferencePath' processed ["."] = "":processed
+dereferencePath' (".":processed) ps@("..":_) = dereferencePath' processed ps
+dereferencePath' processed ("..":ps) = dereferencePath' (tailSafe processed) (".":ps)
 dereferencePath' processed (".":ps) = dereferencePath' processed ps
-dereferencePath' processed (p:ps) = dereferencePath' (processed ++ [p]) ps
+dereferencePath' processed (p:ps) = dereferencePath' (p:processed) ps
 
 -- Parser
 
@@ -494,7 +495,9 @@ skip a = do
 	return ()
 
 explode :: (Eq a) => a -> [a] -> [[a]]
+explode _ [] = []
 explode delim xs = let (first, rest) = span (/= delim) xs
 	in first : case rest of
 		[] -> []
+		x:[] -> [[]]
 		x:xs -> explode delim xs
