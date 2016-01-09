@@ -11,11 +11,11 @@ Homepage: http://gitorious.org/uri
 Build-type: Simple
 Stability: Experimental
 Cabal-version: >= 1.6
-
 Source-repository head
     Type: git
     Location: git://git.bitcheese.net/uri
 
 library
+ ghc-options: -fno-warn-tabs
  Exposed-Modules: Text.URI
  Build-Depends: base >= 4 && < 5, parsec >= 3.0, safe, utf8-string
