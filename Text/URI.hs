@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Text.URI (
 	URI(..)
@@ -10,10 +11,10 @@ module Text.URI (
 	, nullURI
 	, okInFragment
 	, okInPath
+	, okInPathSegment
 	, okInQuery
 	, okInQueryItem
 	, okInUserinfo
-	, okInPathSegment
 	, mergePaths
 	, mergePathStrings
 	, mergeURIs
@@ -28,11 +29,13 @@ module Text.URI (
 	, uriQueryItems
 	) where
 
+import Codec.Binary.UTF8.String
 import Data.Char
+import Data.Data
 import Data.List
 import Data.Maybe
+import Data.Typeable
 import Data.Word
-import Codec.Binary.UTF8.String
 import Safe
 import Text.Parsec
 import Text.Printf
@@ -58,7 +61,7 @@ data URI = URI {
 	, uriPath :: String -- ^ @/ghc@
 	, uriQuery :: Maybe String -- ^ @query@
 	, uriFragment :: Maybe String -- ^ @frag@
-	} deriving (Eq)
+	} deriving (Eq, Ord, Typeable, Data)
 
 -- | Blank URI
 nullURI :: URI
