@@ -13,6 +13,7 @@ module Text.URI (
 	, okInQuery
 	, okInQueryItem
 	, okInUserinfo
+	, okInPathSegment
 	, mergePaths
 	, mergePathStrings
 	, mergeURIs
